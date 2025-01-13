@@ -25,7 +25,7 @@ production = {
     for _, row in data.iterrows()
 }
 
-k = 20  
+k = 5 # change here when needed with regard to the cable capacity
 u = 393  
 
 # Euclidean distance
@@ -84,6 +84,10 @@ model.addConstr(
     name="NoOutdegree_Substation"
 )
 
+model.addConstr(
+    quicksum(x[i, substation] for i in nodes if i != substation) <= 13, # change value to test different number of nodes
+    name="Max3Cables_Substation")
+
 # Solve the model
 model.optimize()
 
@@ -132,3 +136,5 @@ if model.status == GRB.OPTIMAL:
 
 else:
     print("No optimal solution found.")
+
+
