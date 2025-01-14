@@ -38,6 +38,20 @@ model.setObjective(obj, GRB.MINIMIZE)
 for i in range(n):
     model.addConstr(gp.quicksum(x[i, c] for c in range(K)) == 1)
 
+'''
+# must-link Constraints
+must_link = [(12, 21), (20, 13)]
+for i, j in must_link:
+    for c in range(K):
+        model.addConstr(x[i, c] == x[j, c], f"MustLink_{i}_{j}_cluster_{c}")
+'''
+'''
+# Cannot-link Constraints
+cannot_link = [(6, 18), (23, 14)]
+for i, j in cannot_link:
+    for c in range(K):
+        model.addConstr(x[i, c] + x[j, c] <= 1, f"CannotLink_{i}_{j}_cluster_{c}")
+'''
 # Optimize the model
 model.optimize()
 
