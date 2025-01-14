@@ -25,9 +25,6 @@ production = {
     for _, row in data.iterrows()
 }
 
-k = 5 # change here when needed with regard to the cable capacity
-u = 393  
-
 # Euclidean distance
 def euclidean_distance(i, j):
     xi, yi = nodes[i]
@@ -40,58 +37,99 @@ distances = {
     for i in nodes for j in nodes if i != j
 }
 
-# My model 
-model = Model("Wind Farm Problem")
+#k = 5 
+u = 393  
+k_values = range(1, 101)  # Testing k values from 2 to 100
+results = []
+for k in k_values:
+    print(f"Testing k = {k}")
+    model = Model(f"Wind Farm Problem k={k}")
 
-# Decision variables
-x = model.addVars(distances.keys(), vtype=GRB.BINARY, name="x")  
-f = model.addVars(distances.keys(), lb=0, vtype=GRB.CONTINUOUS, name="f")  
+    # Decision variables
+    x = model.addVars(distances.keys(), vtype=GRB.BINARY, name="x")  
+    f = model.addVars(distances.keys(), lb=0, vtype=GRB.CONTINUOUS, name="f")  
 
-# Objective function
-model.setObjective(
-    quicksum(u * distances[i, j] * x[i, j] for i, j in distances),
-    GRB.MINIMIZE
-)
-
-# Constraints
-
-for i in turbines:
-    model.addConstr(
-        quicksum(f[i, j] for j in nodes if j != i) - quicksum(f[h, i] for h in nodes if h != i) == production[i],
-        name=f"FlowConservation_Turbine_{i}"
+    # Objective function
+    model.setObjective(
+        quicksum(u * distances[i, j] * x[i, j] for i, j in distances),
+        GRB.MINIMIZE
     )
 
-model.addConstr(
-    quicksum(f[substation, j] for j in nodes if j != substation) == 0,
-    name="NoOutflow_Substation"
-)
-model.addConstr(
-    quicksum(f[h, substation] for h in nodes if h != substation) == sum(production[i] for i in turbines),
-    name="Inflow_Substation"
-)
+    # Constraints
 
-for i, j in distances:
-    model.addConstr(f[i, j] <= k * x[i, j], name=f"Capacity_{i}_{j}")
+    for i in turbines:
+        model.addConstr(
+            quicksum(f[i, j] for j in nodes if j != i) - quicksum(f[h, i] for h in nodes if h != i) == production[i],
+            name=f"FlowConservation_Turbine_{i}"
+        )
 
-for i in turbines:
     model.addConstr(
-        quicksum(x[i, j] for j in nodes if j != i) == 1,
-        name=f"Outdegree_Turbine_{i}"
+        quicksum(f[substation, j] for j in nodes if j != substation) == 0,
+        name="NoOutflow_Substation"
+    )
+    model.addConstr(
+        quicksum(f[h, substation] for h in nodes if h != substation) == sum(production[i] for i in turbines),
+        name="Inflow_Substation"
     )
 
-model.addConstr(
-    quicksum(x[substation, j] for j in nodes if j != substation) == 0,
-    name="NoOutdegree_Substation"
-)
+    for i, j in distances:
+        model.addConstr(f[i, j] <= k * x[i, j], name=f"Capacity_{i}_{j}")
 
-model.addConstr(
-    quicksum(x[i, substation] for i in nodes if i != substation) <= 13, # change value to test different number of nodes
-    name="Max3Cables_Substation")
+    for i in turbines:
+        model.addConstr(
+            quicksum(x[i, j] for j in nodes if j != i) == 1,
+            name=f"Outdegree_Turbine_{i}"
+        )
 
-# Solve the model
-model.optimize()
+    model.addConstr(
+        quicksum(x[substation, j] for j in nodes if j != substation) == 0,
+        name="NoOutdegree_Substation"
+    )
 
-# The results
+    '''model.addConstr(
+        quicksum(x[i, substation] for i in nodes if i != substation) <= 13, 
+        name="Max3Cables_Substation")'''
+
+    # Solve the model
+    model.optimize()
+
+    # Store results
+    if model.status == GRB.OPTIMAL:
+            results.append((k, model.objVal))
+            print(f"Total cost for k = {k}: {model.objVal}")
+    else:
+            results.append((k, None))
+            print(f"No solution for k = {k}")
+    
+    # Summarize results
+    stable_k_start = None
+    unique_costs = set()
+    print("\nSummary of Results:")
+    for k, cost in results:
+        if cost is not None:
+            print(f"k = {k}, Total Cost = {cost:.2f}")
+            unique_costs.add(cost)
+            if stable_k_start is None and len(unique_costs) == 1:
+                stable_k_start = k
+
+    print(f"\nNumber of unique total costs: {len(unique_costs)}")
+    print(f"Cost stabilizes at k >= {stable_k_start} with total cost = {cost:.2f}")
+
+# Plot results
+k_values, total_costs = zip(*results)
+plt.figure(figsize=(10, 6))
+plt.plot(k_values, total_costs, marker='o', linestyle='-', label="Total Cost")
+plt.title("Impact of Cable Capacity (k > 1) on Total Cost", fontsize=16)
+plt.xlabel("Cable Capacity (k)", fontsize=14)
+plt.ylabel("Total Cost (USD)", fontsize=14)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(fontsize=12)
+plt.show()
+
+
+'''# The results
 if model.status == GRB.OPTIMAL:
     print("Optimal solution found:")
     print(f"Total cost: {model.objVal}")
@@ -135,6 +173,6 @@ if model.status == GRB.OPTIMAL:
     plt.show()
 
 else:
-    print("No optimal solution found.")
+    print("No optimal solution found.")'''
 
 
